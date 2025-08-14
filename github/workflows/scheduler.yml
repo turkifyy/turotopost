@@ -1,0 +1,48 @@
+name: Facebook Auto Poster
+on:
+  schedule:
+    - cron: '30 6 * * *' 
+    - cron: '30 13 * * *'  
+    - cron: '30 16 * * *'  
+    - cron: '30 19 * * *'  
+jobs:
+  daily-posting:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        time_slot: ['morning', 'afternoon', 'evening', 'night']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Calculate Active Account
+        id: account-calc
+        run: |
+          DAY=$(date +'%d')
+          ACCOUNT_ID=$(( (DAY % 5) + 1 ))
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+      
+      - name: Run Posting
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_TOKENS: ${{ secrets.FB_TOKENS }}
+        run: |
+          node src/poster.js ${{ matrix.time_slot }} ${{ steps.account-calc.outputs.account_id }}
+        continue-on-error: true
+        timeout-minutes: 15
+      
+      - name: Log Results
+        if: always()
+        run: |
+          echo "عملية النشر للوقت ${{ matrix.time_slot }} اكتملت بالحالة ${{ job.status }}"
