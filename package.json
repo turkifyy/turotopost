@@ -1,0 +1,24 @@
+{
+  "name": "turotopost",
+  "version": "4.1.0",
+  "description": "نظام النشر التلقائي على فيسبوك باستخدام Zapier و Firebase",
+  "main": "src/auto_poster.js",
+  "scripts": {
+    "start": "node src/auto_poster.js",
+    "rotation": "node src/rotation_system.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "date-fns": "^3.6.0",
+    "firebase-admin": "^12.1.0"
+  },
+  "keywords": [
+    "facebook",
+    "automation",
+    "zapier",
+    "firebase"
+  ],
+  "author": "Turki",
+  "license": "MIT"
+}
