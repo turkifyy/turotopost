@@ -23,7 +23,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm ci --production
+          npm install --omit=dev --prefer-offline --no-audit
           npm list --depth=0
 
       - name: Upload dependencies
