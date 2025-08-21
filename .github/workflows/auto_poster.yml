@@ -48,8 +48,10 @@ jobs:
 
       - name: Verify dependencies
         run: |
-          ls -la node_modules/ | grep -E "(firebase|axios|date-fns)" || echo "Some packages not found"
-          npm list --depth=0
+          echo "التحقق من الحزم الأساسية..."
+          ls -la node_modules/ | grep -E "(firebase|axios|date-fns)" || echo "بعض الحزم غير موجودة"
+          echo "التحقق من التبعيات المثبتة (بدون حزم التطوير)..."
+          npm list --depth=0 --omit=dev --no-fund
 
       - name: Run Auto Poster
         env:
