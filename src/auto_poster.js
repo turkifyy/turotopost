@@ -424,14 +424,21 @@ class ContentManager {
   }
 
   async fetchNewContent(category, limit) {
-    const query = await this.db.collection('links')
-      .where('linkType', '==', category)
-      .where('isPosted', '==', false)
-      .orderBy('importDate', 'asc') // ✅ الأولوية للاستيراد الأقدم أولاً
-      .limit(limit)
-      .get();
+    // ✅ الكود الجديد (الحل):
+const query = await this.db.collection('links')
+  .where('linkType', '==', category)
+  .where('isPosted', '==', false)
+  .limit(limit * 2) // ✅ جلب أكثر لتعويض عدم الترتيب المسبق
+  .get();
 
-    return query.docs;
+// الترتيب يدوياً
+const sortedDocs = query.docs.sort((a, b) => {
+  const dateA = a.data().importDate || '0000-00-00';
+  const dateB = b.data().importDate || '0000-00-00';
+  return dateA.localeCompare(dateB);
+});
+
+return sortedDocs.slice(0, limit); // ✅ إرجاع العدد المطلوب فقط
   }
 
   async fetchRepostableContent(category, limit) {
