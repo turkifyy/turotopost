@@ -419,6 +419,18 @@ class ContentManager {
 
     } catch (error) {
       console.error(`❌ خطأ في استخراج المحتوى لنوع ${category}:`, error.message);
+      console.log('🔍 البحث عن أي محتوى متاح كحل بديل...');
+
+// محاولة ثانية: البحث بدون شرط isPosted
+      const fallbackQuery = await this.db.collection('links')
+      .where('linkType', '==', category)
+      .limit(limit)
+      .get();
+
+       if (!fallbackQuery.empty) {
+      console.log(`⚠️  وجد ${fallbackQuery.size} رابط ولكن قد يكون منشوراً مسبقاً`);
+       return fallbackQuery.docs;
+     }
       return [];
     }
   }
