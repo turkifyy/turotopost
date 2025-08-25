@@ -43,7 +43,6 @@ jobs:
 
   rotation-check:
     needs: install-dependencies
-    if: github.event_name == 'schedule' && startsWith(github.event.schedule, '30 5')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
