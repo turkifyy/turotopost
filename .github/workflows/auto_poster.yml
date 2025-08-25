@@ -1,0 +1,117 @@
+# =================================================================
+# || نظام النشر التلقائي المحدث v5.0 ||
+# =================================================================
+# الوصف:
+# تم تحديث هذا الملف لتشغيل عملية النشر 4 مرات يوميًا، مرة في
+# بداية كل فترة (صباح، ظهر، مساء، ليل). كل عملية تشغيل
+# ستقوم بنشر 3 منشورات مع فواصل زمنية بينها.
+# =================================================================
+
+name: Auto Poster System v5.0
+
+on:
+  schedule:
+    # 1. فترة الصباح: 09:30 صباحًا بتوقيت الإمارات (05:30 UTC)
+    - cron: '30 5 * * *'
+    # 2. فترة الظهر: 01:30 ظهرًا بتوقيت الإمارات (09:30 UTC)
+    - cron: '30 9 * * *'
+    # 3. فترة المساء: 05:30 مساءً بتوقيت الإمارات (13:30 UTC)
+    - cron: '30 13 * * *'
+    # 4. فترة الليل: 09:30 ليلاً بتوقيت الإمارات (17:30 UTC)
+    - cron: '30 17 * * *'
+  [cite_start]workflow_dispatch: # للتشغيل اليدوي والاختبار [cite: 11]
+
+jobs:
+  install-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm install --omit=dev --prefer-offline --no-audit --no-fund [cite: 12]
+          npm list --depth=0 --omit=dev --no-fund [cite: 12]
+
+      - name: Upload dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-modules
+          path: node_modules/
+          retention-days: 1
+
+  process-posts:
+    runs-on: ubuntu-latest
+    needs: install-dependencies
+    steps:
+      - name: Checkout repository
+        [cite_start]uses: actions/checkout@v4 [cite: 13]
+
+      - name: Download dependencies
+        [cite_start]uses: actions/download-artifact@v4 [cite: 13]
+        with:
+          name: node-modules
+          path: node_modules/
+
+      - name: Verify dependencies
+        run: |
+          echo "التحقق من الحزم الأساسية..." [cite: 14]
+          ls -la node_modules/ | grep -E "(firebase|axios|date-fns)" || echo "بعض الحزم غير موجودة" [cite: 15]
+          echo "التحقق من التبعيات المثبتة (بدون حزم التطوير)..." [cite: 15]
+          npm list --depth=0 --omit=dev --no-fund [cite: 15]
+
+      - name: Run Auto Poster
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          [cite_start]ZAPIER_WEBHOOKS: ${{ secrets.ZAPIER_WEBHOOKS }} [cite: 16]
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          echo "🚀 بدء تشغيل النظام..." [cite: 17]
+          node src/auto_poster.js
+        # تم زيادة المهلة إلى 90 دقيقة لاستيعاب الفواصل الزمنية بين المنشورات
+        timeout-minutes: 90
+
+  rotation-check:
+    runs-on: ubuntu-latest
+    needs: install-dependencies
+    # يتم تشغيله مرة واحدة يوميًا قبل أول عملية نشر
+    if: github.event_name == 'schedule' && github.event.schedule == '30 5 * * *'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download dependencies
+        uses: actions/download-artifact@v4
+        with:
+          name: node-modules
+          path: node_modules/
+
+      - name: Check Account Rotation
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          [cite_start]TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }} [cite: 19]
+        run: node src/rotation_system.js
+        timeout-minutes: 5
+
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [process-posts, rotation-check]
+    if: always()
+    steps:
+      - name: Cleanup artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('🧹 تنظيف المؤقتات...'); [cite: 20]
