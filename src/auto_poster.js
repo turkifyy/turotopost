@@ -434,24 +434,19 @@ class ContentManager {
       return [];
     }
   }
-
+  
   async fetchNewContent(category, limit) {
-    // ✅ الكود الجديد (الحل):
-const query = await this.db.collection('links')
-  .where('linkType', '==', category)
-  .where('isPosted', '==', false)
-  .limit(limit * 2) // ✅ جلب أكثر لتعويض عدم الترتيب المسبق
-  .get();
+  // يتطلب composite index: linkType ASC, isPosted ASC, importStatus ASC, createdAt DESC
+  const query = await this.db.collection('links')
+    .where('linkType', '==', category)
+    .where('isPosted', '==', false)
+    .where('importStatus', '==', 'ready')
+    .orderBy('createdAt', 'desc')
+    .limit(limit)
+    .get();
 
-// الترتيب يدوياً
-const sortedDocs = query.docs.sort((a, b) => {
-  const dateA = a.data().importDate || '0000-00-00';
-  const dateB = b.data().importDate || '0000-00-00';
-  return dateA.localeCompare(dateB);
-});
-
-return sortedDocs.slice(0, limit); // ✅ إرجاع العدد المطلوب فقط
-  }
+  return query.docs;
+}
 
   async fetchRepostableContent(category, limit) {
     const cutoffDate = subDays(new Date(), CONFIG.REPOST_COOLDOWN_DAYS);
