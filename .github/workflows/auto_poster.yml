@@ -1,0 +1,116 @@
+name: Auto Poster System v5.2 - توقيت دبي
+
+on:
+  schedule:
+    # --- جميع الأوقات بتوقيت دبي (UTC+4) ---
+    # تم تعديل الأوقات لتناسب توقيت دبي (UTC+4)
+    # الفترة الصباحية (تبدأ الساعة 9:30 بتوقيت دبي)
+    - cron: '30 5 * * *'   # النشر 1 (9:30 دبي = 5:30 UTC)
+    - cron: '0 6 * * *'    # النشر 2 (10:00 دبي = 6:00 UTC)
+    - cron: '45 6 * * *'   # النشر 3 (10:45 دبي = 6:45 UTC)
+    
+    # الفترة الظهرية (تبدأ الساعة 13:30 بتوقيت دبي)
+    - cron: '30 9 * * *'   # النشر 1 (13:30 دبي = 9:30 UTC)
+    - cron: '0 10 * * *'   # النشر 2 (14:00 دبي = 10:00 UTC)
+    - cron: '45 10 * * *'  # النشر 3 (14:45 دبي = 10:45 UTC)
+    
+    # الفترة المسائية (تبدأ الساعة 18:30 بتوقيت دبي)
+    - cron: '30 14 * * *'  # النشر 1 (18:30 دبي = 14:30 UTC)
+    - cron: '0 15 * * *'   # النشر 2 (19:00 دبي = 15:00 UTC)
+    - cron: '45 15 * * *'  # النشر 3 (19:45 دبي = 15:45 UTC)
+    
+    # الفترة الليلية (تبدأ الساعة 22:30 بتوقيت دبي)
+    - cron: '30 18 * * *'  # النشر 1 (22:30 دبي = 18:30 UTC)
+    - cron: '0 19 * * *'   # النشر 2 (23:00 دبي = 19:00 UTC)
+    - cron: '45 19 * * *'  # النشر 3 (23:45 دبي = 19:45 UTC)
+  workflow_dispatch: {}     # للسماح بالتشغيل اليدوي
+
+jobs:
+  # ===================================================================
+  # JOB 1: تثبيت الاعتماديات وحفظها في التخزين المؤقت
+  # ===================================================================
+  install-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js v20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node modules
+        id: cache-node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache not found. Installing dependencies..."
+          npm install --omit=dev --prefer-offline --no-audit --no-fund
+
+  # ===================================================================
+  # JOB 2: إعداد تناوب الحسابات اليومي (يعمل مرة واحدة فقط)
+  # ===================================================================
+  setup_daily_rotation:
+    runs-on: ubuntu-latest
+    needs: install-dependencies
+    # الشرط التالي يضمن تشغيل هذه المهمة مرة واحدة فقط في اليوم مع أول جدولة (5:30 UTC)
+    if: github.event.schedule == '30 5 * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download dependencies from cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+      
+      - name: Run Daily Zapier Rotation Setup
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          ZAPIER_WEBHOOKS: ${{ secrets.ZAPIER_WEBHOOKS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node src/setup_rotation.js
+        timeout-minutes: 5
+
+  # ===================================================================
+  # JOB 3: تشغيل نظام النشر (يعمل 12 مرة في اليوم)
+  # ===================================================================
+  process-post:
+    runs-on: ubuntu-latest
+    needs: [install-dependencies, setup_daily_rotation]
+    # التشغيل دائمًا لضمان عمل المهمة حتى لو تم تخطي 'setup_daily_rotation'
+    if: always() 
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download dependencies from cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Run Auto Poster
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          ZAPIER_WEBHOOKS: ${{ secrets.ZAPIER_WEBHOOKS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          echo "🚀 Starting Auto Poster System..."
+          node src/auto_poster.js
+        timeout-minutes: 10
